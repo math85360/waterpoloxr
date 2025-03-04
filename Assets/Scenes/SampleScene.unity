@@ -6765,10 +6765,17 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   handTransform: {fileID: 892348902}
-  velocityFrameCount: 8
-  throwForceMultiplier: 3.2
-  spinMultiplier: 0.8
   isPrimaryHand: 1
+  currentControllerData:
+    linearVelocity: {x: 0, y: 0, z: 0}
+    angularVelocity: {x: 0, y: 0, z: 0}
+    position: {x: 0, y: 0, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 0}
+  lastControllerData:
+    linearVelocity: {x: 0, y: 0, z: 0}
+    angularVelocity: {x: 0, y: 0, z: 0}
+    position: {x: 0, y: 0, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 0}
 --- !u!114 &1114739814
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6785,10 +6792,17 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   handTransform: {fileID: 1162935338}
-  velocityFrameCount: 8
-  throwForceMultiplier: 3.2
-  spinMultiplier: 0.8
   isPrimaryHand: 0
+  currentControllerData:
+    linearVelocity: {x: 0, y: 0, z: 0}
+    angularVelocity: {x: 0, y: 0, z: 0}
+    position: {x: 0, y: 0, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 0}
+  lastControllerData:
+    linearVelocity: {x: 0, y: 0, z: 0}
+    angularVelocity: {x: 0, y: 0, z: 0}
+    position: {x: 0, y: 0, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 0}
 --- !u!1 &1114989112
 GameObject:
   m_ObjectHideFlags: 0
@@ -7719,8 +7733,8 @@ Rigidbody:
   m_GameObject: {fileID: 1253694996}
   serializedVersion: 4
   m_Mass: 0.45
-  m_Drag: 2
-  m_AngularDrag: 3
+  m_Drag: 0.2
+  m_AngularDrag: 0.2
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -7736,7 +7750,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 1
   m_Constraints: 0
-  m_CollisionDetection: 3
+  m_CollisionDetection: 2
 --- !u!114 &1253695000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7749,8 +7763,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a0afaee05cb2ef7428156956d8026a96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  buoyancyForce: 10
+  buoyancyForce: 7
   ballDiameter: 0.2
+  AirParameters:
+    linearDamping: 0.1
+    angularDamping: 0.1
+  WaterParameters:
+    linearDamping: 3.5
+    angularDamping: 1
+  forceLimiter: 1
 --- !u!1 &1259398933
 GameObject:
   m_ObjectHideFlags: 0
