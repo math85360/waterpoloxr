@@ -124,8 +124,8 @@ public class BallGrabAndThrow : MonoBehaviour
         // Quaternion worldRotation = handTransform.rotation;
         // Quaternion localRotation = Quaternion.Inverse(worldRotation) * heldBall.transform.rotation;
         heldBall.transform.localPosition = Vector3.zero;
-        Vector3 linearVelocity = OVRInput.GetLocalControllerVelocity(controller);
-        Vector3 angularVelocity = OVRInput.GetLocalControllerAngularVelocity(controller);
+        Vector3 linearVelocity = heldBall.transform.TransformDirection(OVRInput.GetLocalControllerVelocity(controller));
+        Vector3 angularVelocity = heldBall.transform.InverseTransformDirection(OVRInput.GetLocalControllerAngularVelocity(controller));
         Vector3 position = handTransform.localToWorldMatrix.MultiplyPoint(OVRInput.GetLocalControllerPosition(controller));
         // handTransform.transform.ToTrackingSpacePose
         Quaternion rotation = OVRInput.GetLocalControllerRotation(controller);
@@ -189,9 +189,9 @@ public class BallGrabAndThrow : MonoBehaviour
             // heldBallRb.AddForce()
             // heldBallRb.AddRelativeForce(velocity, ForceMode.Impulse);
             // heldBallRb.AddRelativeTorque(angularVelocity, ForceMode.Impulse);
+            heldBall.transform.SetParent(null);
             heldBallRb.linearVelocity = lastControllerData.linearVelocity;
             heldBallRb.angularVelocity = lastControllerData.angularVelocity;
-            heldBall.transform.SetParent(null);
             // heldBallRb.position = lastControllerData.position;
             // heldBallRb.rotation = lastControllerData.rotation;
             // Réinitialiser les variables

@@ -13,8 +13,9 @@ TagManager:
   - 
   - Water
   - UI
-  - In Water
+  - Ignore in Water Ripple Effect Camera
   - Grabbable
+  - Ignore in Main Camera Render
   - 
   - 
   - 
@@ -26,9 +27,8 @@ TagManager:
   - 
   - 
   - 
-  - 
-  - 
-  - 
+  - Immersive Debugger Panel
+  - Immersive Debugger Mesh
   - 
   - 
   - 
