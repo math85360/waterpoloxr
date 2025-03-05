@@ -121,20 +121,27 @@ public class BallGrabAndThrow : MonoBehaviour
 
     void UpdateControllerData()
     {
-        // Simplification des calculs de vélocité pour qu'ils fonctionnent sur le dispositif réel
+        // Sauvegarder les données précédentes
         lastControllerData = currentControllerData;
 
-        // Obtenir directement les vélocités dans l'espace monde
-        Vector3 linearVelocity = OVRInput.GetLocalControllerVelocity(controller);
-        Vector3 angularVelocity = OVRInput.GetLocalControllerAngularVelocity(controller);
+        // Obtenir les vélocités dans l'espace de tracking
+        Vector3 localLinearVelocity = OVRInput.GetLocalControllerVelocity(controller);
+        Vector3 localAngularVelocity = OVRInput.GetLocalControllerAngularVelocity(controller);
+
+        // Trouver la référence à l'espace de tracking
+        Transform trackingSpace = Camera.main.transform.parent;
+
+        // Transformer immédiatement les vélocités en espace monde
+        Vector3 worldLinearVelocity = trackingSpace.TransformDirection(localLinearVelocity);
+        Vector3 worldAngularVelocity = trackingSpace.TransformDirection(localAngularVelocity);
 
         // Conserver la position et rotation du contrôleur
         Vector3 position = handTransform.position;
         Quaternion rotation = handTransform.rotation;
 
-        // Mettre à jour les données actuelles du contrôleur
-        currentControllerData.linearVelocity = linearVelocity;
-        currentControllerData.angularVelocity = angularVelocity;
+        // Mettre à jour les données actuelles du contrôleur avec les vélocités MONDIALES
+        currentControllerData.linearVelocity = worldLinearVelocity;
+        currentControllerData.angularVelocity = worldAngularVelocity;
         currentControllerData.position = position;
         currentControllerData.rotation = rotation;
 
@@ -191,16 +198,16 @@ public class BallGrabAndThrow : MonoBehaviour
             heldBallRb.isKinematic = false;
             heldBall.transform.SetParent(null);
 
-            // Appliquer les vélocités dans l'espace monde avec un facteur de force
+            // Appliquer les vélocités déjà transformées en monde avec un facteur de force
             float throwForce = 2.0f; // Ajustez cette valeur selon la force de lancer souhaitée
 
-            // Transformer les vélocités locales en vélocités mondiales
-            Vector3 worldLinearVelocity = handTransform.TransformDirection(lastControllerData.linearVelocity) * throwForce;
-            Vector3 worldAngularVelocity = handTransform.TransformDirection(lastControllerData.angularVelocity);
+            // Utiliser directement les vélocités mondiales stockées
+            Vector3 ballVelocity = lastControllerData.linearVelocity * throwForce;
+            Vector3 ballAngularVelocity = lastControllerData.angularVelocity;
 
             // Appliquer les vélocités
-            heldBallRb.linearVelocity = worldLinearVelocity;
-            heldBallRb.angularVelocity = worldAngularVelocity;
+            heldBallRb.linearVelocity = ballVelocity;
+            heldBallRb.angularVelocity = ballAngularVelocity;
 
             // Réinitialiser les variables
             heldBall = null;
