@@ -121,22 +121,26 @@ public class BallGrabAndThrow : MonoBehaviour
 
     void UpdateControllerData()
     {
-        // Quaternion worldRotation = handTransform.rotation;
-        // Quaternion localRotation = Quaternion.Inverse(worldRotation) * heldBall.transform.rotation;
-        heldBall.transform.localPosition = Vector3.zero;
-        Vector3 linearVelocity = heldBall.transform.TransformDirection(OVRInput.GetLocalControllerVelocity(controller));
-        Vector3 angularVelocity = heldBall.transform.InverseTransformDirection(OVRInput.GetLocalControllerAngularVelocity(controller));
-        Vector3 position = handTransform.localToWorldMatrix.MultiplyPoint(OVRInput.GetLocalControllerPosition(controller));
-        // handTransform.transform.ToTrackingSpacePose
-        Quaternion rotation = OVRInput.GetLocalControllerRotation(controller);
-        lastControllerData.linearVelocity = linearVelocity;
-        lastControllerData.angularVelocity = angularVelocity;
-        lastControllerData.position = position;
-        lastControllerData.rotation = rotation;
+        // Simplification des calculs de vélocité pour qu'ils fonctionnent sur le dispositif réel
+        lastControllerData = currentControllerData;
+
+        // Obtenir directement les vélocités dans l'espace monde
+        Vector3 linearVelocity = OVRInput.GetLocalControllerVelocity(controller);
+        Vector3 angularVelocity = OVRInput.GetLocalControllerAngularVelocity(controller);
+
+        // Conserver la position et rotation du contrôleur
+        Vector3 position = handTransform.position;
+        Quaternion rotation = handTransform.rotation;
+
+        // Mettre à jour les données actuelles du contrôleur
         currentControllerData.linearVelocity = linearVelocity;
         currentControllerData.angularVelocity = angularVelocity;
         currentControllerData.position = position;
         currentControllerData.rotation = rotation;
+
+        // Maintenir le ballon à la position de la main
+        heldBall.transform.position = handTransform.position;
+        heldBall.transform.rotation = handTransform.rotation;
     }
 
     void HandleThrownState()
@@ -185,15 +189,19 @@ public class BallGrabAndThrow : MonoBehaviour
         {
             Debug.Log("Ball released");
             heldBallRb.isKinematic = false;
-            // heldBall.transform.position  = handTransform.position+   OVRInput.GetLocalControllerPosition(controller);
-            // heldBallRb.AddForce()
-            // heldBallRb.AddRelativeForce(velocity, ForceMode.Impulse);
-            // heldBallRb.AddRelativeTorque(angularVelocity, ForceMode.Impulse);
             heldBall.transform.SetParent(null);
-            heldBallRb.linearVelocity = lastControllerData.linearVelocity;
-            heldBallRb.angularVelocity = lastControllerData.angularVelocity;
-            // heldBallRb.position = lastControllerData.position;
-            // heldBallRb.rotation = lastControllerData.rotation;
+
+            // Appliquer les vélocités dans l'espace monde avec un facteur de force
+            float throwForce = 2.0f; // Ajustez cette valeur selon la force de lancer souhaitée
+
+            // Transformer les vélocités locales en vélocités mondiales
+            Vector3 worldLinearVelocity = handTransform.TransformDirection(lastControllerData.linearVelocity) * throwForce;
+            Vector3 worldAngularVelocity = handTransform.TransformDirection(lastControllerData.angularVelocity);
+
+            // Appliquer les vélocités
+            heldBallRb.linearVelocity = worldLinearVelocity;
+            heldBallRb.angularVelocity = worldAngularVelocity;
+
             // Réinitialiser les variables
             heldBall = null;
             heldBallRb = null;
