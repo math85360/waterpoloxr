@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
 using System.Collections.Generic;
+using Meta.XR.ImmersiveDebugger;
 
 public class BallGrabAndThrow : MonoBehaviour
 {
@@ -32,6 +33,8 @@ public class BallGrabAndThrow : MonoBehaviour
 
     public ControllerData currentControllerData;
     public ControllerData lastControllerData;
+
+    public float throwForce = 2.0f; // Ajustez cette valeur selon la force de lancer souhaitée
 
     private enum State
     {
@@ -199,7 +202,7 @@ public class BallGrabAndThrow : MonoBehaviour
             heldBall.transform.SetParent(null);
 
             // Appliquer les vélocités déjà transformées en monde avec un facteur de force
-            float throwForce = 2.0f; // Ajustez cette valeur selon la force de lancer souhaitée
+
 
             // Utiliser directement les vélocités mondiales stockées
             Vector3 ballVelocity = lastControllerData.linearVelocity * throwForce;

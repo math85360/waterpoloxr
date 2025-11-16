@@ -12,7 +12,6 @@ public class BallBuoyancy : MonoBehaviour
     public float buoyancyForce = 1f;
     public float ballDiameter = 0.2f;
     private Rigidbody rb;
-    private bool inWater;
     public ElementParameters AirParameters;
     public ElementParameters WaterParameters;
     private Vector3 invertedGravity;
