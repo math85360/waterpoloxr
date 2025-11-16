@@ -61,7 +61,7 @@ namespace WaterPolo.Players
         }
 
         /// <summary>
-        /// Determine own goal and opponent goal based on initial position.
+        /// Determine own goal and opponent goal based on TeamName.
         /// Called once at Start to cache the correct goals.
         /// </summary>
         private void DetermineGoals()
@@ -74,31 +74,74 @@ namespace WaterPolo.Players
                 return;
             }
 
-            // At start, own goal is the closest one, opponent goal is the furthest
-            // This assumes players start near their own goal
-            float closestDistance = float.MaxValue;
-            float furthestDistance = 0f;
-
-            foreach (GameObject goal in goals)
+            // Find goals based on GoalDetector._goalTeam matching player TeamName
+            foreach (GameObject goalObj in goals)
             {
-                float distance = Vector3.Distance(transform.position, goal.transform.position);
-
-                if (distance < closestDistance)
+                GoalDetector detector = goalObj.GetComponentInChildren<GoalDetector>();
+                if (detector == null)
                 {
-                    closestDistance = distance;
-                    _ownGoal = goal.transform;
+                    // Try on parent
+                    detector = goalObj.GetComponentInParent<GoalDetector>();
                 }
 
-                if (distance > furthestDistance)
+                if (detector != null)
                 {
-                    furthestDistance = distance;
-                    _opponentGoal = goal.transform;
+                    // Use reflection to get _goalTeam (it's private SerializeField)
+                    var field = detector.GetType().GetField("_goalTeam",
+                        System.Reflection.BindingFlags.NonPublic |
+                        System.Reflection.BindingFlags.Instance);
+
+                    if (field != null)
+                    {
+                        string goalTeam = (string)field.GetValue(detector);
+
+                        if (goalTeam == _teamName)
+                        {
+                            // This is my own goal (I defend it)
+                            _ownGoal = goalObj.transform;
+                        }
+                        else
+                        {
+                            // This is opponent goal (I attack it)
+                            _opponentGoal = goalObj.transform;
+                        }
+                    }
+                }
+            }
+
+            // Fallback: If reflection failed, use distance-based detection
+            if (_ownGoal == null || _opponentGoal == null)
+            {
+                Debug.LogWarning($"{_playerName}: Could not find goals by TeamName, using distance fallback");
+
+                float closestDistance = float.MaxValue;
+                float furthestDistance = 0f;
+
+                foreach (GameObject goal in goals)
+                {
+                    float distance = Vector3.Distance(transform.position, goal.transform.position);
+
+                    if (distance < closestDistance)
+                    {
+                        closestDistance = distance;
+                        _ownGoal = goal.transform;
+                    }
+
+                    if (distance > furthestDistance)
+                    {
+                        furthestDistance = distance;
+                        _opponentGoal = goal.transform;
+                    }
                 }
             }
 
             if (_ownGoal != null && _opponentGoal != null)
             {
-                Debug.Log($"{_playerName}: Own goal at {_ownGoal.position}, Opponent goal at {_opponentGoal.position}");
+                Debug.Log($"{_playerName} ({_teamName}): Own goal at {_ownGoal.position}, Opponent goal at {_opponentGoal.position}");
+            }
+            else
+            {
+                Debug.LogError($"{_playerName}: Failed to determine goals!");
             }
         }
 
@@ -340,50 +383,59 @@ namespace WaterPolo.Players
         private Vector3 GetFormationPosition()
         {
             // Simple formation position based on role
-            // In Phase 2+, FormationManager will set _targetPosition directly
+            // All positions are in own half of the field (defensive formation)
+            // In Phase 2+, FormationManager will set _targetPosition directly and handle attack/defense
 
             if (_ownGoal == null || _opponentGoal == null)
                 return transform.position;
 
-            Vector3 goalPosition = _ownGoal.position;
-            Vector3 basePosition = goalPosition;
-            Vector3 forwardDirection = (_opponentGoal.position - goalPosition).normalized;
+            Vector3 ownGoalPosition = _ownGoal.position;
+            Vector3 forwardDirection = (_opponentGoal.position - ownGoalPosition).normalized;
+            Vector3 rightDirection = Vector3.Cross(forwardDirection, Vector3.up).normalized;
 
-            // Position relative to own goal based on role
+            Vector3 basePosition = ownGoalPosition;
+
+            // ALL positions relative to OWN goal (defensive formation)
+            // This keeps all players in their own half of the field
             switch (_role)
             {
                 case PlayerRole.Goalkeeper:
                     // Stay at own goal
-                    basePosition = goalPosition;
+                    basePosition = ownGoalPosition;
                     break;
 
                 case PlayerRole.CenterForward:
-                    // 5m in front of opponent goal
-                    basePosition = _opponentGoal.position - forwardDirection * 5f;
+                    // Most advanced position, but still in own half (10m from own goal)
+                    basePosition = ownGoalPosition + forwardDirection * 5f;
                     break;
 
                 case PlayerRole.LeftWing:
-                    basePosition = _opponentGoal.position - forwardDirection * 6f;
-                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * -3f; // Left
+                    // 8m forward, 4m to the left
+                    basePosition = ownGoalPosition + forwardDirection * 2f;
+                    basePosition += rightDirection * -4f; // Left
                     break;
 
                 case PlayerRole.RightWing:
-                    basePosition = _opponentGoal.position - forwardDirection * 6f;
-                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * 3f; // Right
+                    // 8m forward, 4m to the right
+                    basePosition = ownGoalPosition + forwardDirection * 2f;
+                    basePosition += rightDirection * 4f; // Right
                     break;
 
                 case PlayerRole.LeftDriver:
-                    basePosition = goalPosition + forwardDirection * 8f;
-                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * -2f;
+                    // Mid-field left (6m from own goal)
+                    basePosition = ownGoalPosition + forwardDirection * 5f;
+                    basePosition += rightDirection * -3f;
                     break;
 
                 case PlayerRole.RightDriver:
-                    basePosition = goalPosition + forwardDirection * 8f;
-                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * 2f;
+                    // Mid-field right (6m from own goal)
+                    basePosition = ownGoalPosition + forwardDirection * 5f;
+                    basePosition += rightDirection * 3f;
                     break;
 
                 case PlayerRole.CenterBack:
-                    basePosition = goalPosition + forwardDirection * 5f;
+                    // Defensive position (3m from own goal)
+                    basePosition = ownGoalPosition + forwardDirection * 2.5f;
                     break;
             }
 
