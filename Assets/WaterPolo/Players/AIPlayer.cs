@@ -1,5 +1,7 @@
 using UnityEngine;
 using WaterPolo.Core;
+using WaterPolo.Tactics;
+using WaterPolo.Ball;
 
 namespace WaterPolo.Players
 {
@@ -13,14 +15,18 @@ namespace WaterPolo.Players
         [Header("AI Configuration")]
         [SerializeField] private float _decisionInterval = 0.5f; // How often to make decisions
         [SerializeField] private float _reactionTime = 0.2f;     // Delay before acting
+        [SerializeField] private float _pursuitDistance = 15f;   // Max distance to pursue ball
 
         [Header("AI State")]
         [SerializeField] private float _nextDecisionTime = 0f;
 
         // References
         private GameObject _ball;
+        private BallController _ballController;
         private Transform _opponentGoal;
+        private Transform _ownGoal; // Cached at Start
         private MatchState _matchState;
+        private FormationManager _formationManager;
 
         #region Unity Lifecycle
 
@@ -34,17 +40,66 @@ namespace WaterPolo.Players
             {
                 Debug.LogWarning($"{_playerName}: No ball found with tag 'Ball'");
             }
+            else
+            {
+                _ballController = _ball.GetComponent<BallController>();
+            }
         }
 
         protected override void Start()
         {
             base.Start();
 
-            // Find opponent goal
-            FindOpponentGoal();
+            // Determine goals at start (when players are at correct initial positions)
+            DetermineGoals();
 
             // Find match state
             _matchState = FindObjectOfType<MatchState>();
+
+            // Find formation manager
+            _formationManager = FindObjectOfType<FormationManager>();
+        }
+
+        /// <summary>
+        /// Determine own goal and opponent goal based on initial position.
+        /// Called once at Start to cache the correct goals.
+        /// </summary>
+        private void DetermineGoals()
+        {
+            GameObject[] goals = GameObject.FindGameObjectsWithTag("Goal");
+
+            if (goals.Length < 2)
+            {
+                Debug.LogWarning($"{_playerName}: Need at least 2 goals in scene!");
+                return;
+            }
+
+            // At start, own goal is the closest one, opponent goal is the furthest
+            // This assumes players start near their own goal
+            float closestDistance = float.MaxValue;
+            float furthestDistance = 0f;
+
+            foreach (GameObject goal in goals)
+            {
+                float distance = Vector3.Distance(transform.position, goal.transform.position);
+
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    _ownGoal = goal.transform;
+                }
+
+                if (distance > furthestDistance)
+                {
+                    furthestDistance = distance;
+                    _opponentGoal = goal.transform;
+                }
+            }
+
+            if (_ownGoal != null && _opponentGoal != null)
+            {
+                Debug.Log($"{_playerName}: Own goal at {_ownGoal.position}, Opponent goal at {_opponentGoal.position}");
+            }
         }
 
         protected override void Update()
@@ -106,26 +161,82 @@ namespace WaterPolo.Players
 
         private void DecideWithoutBall()
         {
-            // Phase 1: Simple logic - move towards ball if it's free, or towards formation position
-            if (_ball != null)
-            {
-                // Check if ball is free (simplified for Phase 1)
-                // In Phase 2+, we'll check BallController state
-                float distanceToBall = Vector3.Distance(transform.position, _ball.transform.position);
+            // Check if should pursue ball or maintain formation
+            bool shouldPursueBall = ShouldPursueBall();
 
-                if (distanceToBall < 10f)
+            if (shouldPursueBall && _ball != null)
+            {
+                // I'm the closest to the ball in my team, pursue it
+                SetTargetPosition(_ball.transform.position);
+                SetAction(PlayerAction.Swimming);
+            }
+            else
+            {
+                // Maintain formation position
+                Vector3 formationPos = GetFormationPosition();
+                SetTargetPosition(formationPos);
+                SetAction(PlayerAction.Positioning);
+            }
+        }
+
+        /// <summary>
+        /// Determines if this player should pursue the ball.
+        /// Only the closest player per team should pursue.
+        /// </summary>
+        private bool ShouldPursueBall()
+        {
+            if (_ball == null) return false;
+
+            // Check if ball is possessed
+            if (_ballController != null && _ballController.CurrentState == BallState.POSSESSED)
+            {
+                return false; // Ball is already possessed, maintain formation
+            }
+
+            float myDistance = Vector3.Distance(transform.position, _ball.transform.position);
+
+            // Don't pursue if too far
+            if (myDistance > _pursuitDistance)
+            {
+                return false;
+            }
+
+            // GOALKEEPER CONSTRAINT: Never go more than 3m from goal position
+            if (_role == PlayerRole.Goalkeeper)
+            {
+                Vector3 goalPosition = GetFormationPosition(); // Own goal
+                float distanceFromGoal = Vector3.Distance(_ball.transform.position, goalPosition);
+
+                // Only pursue if ball is within 3m of goal
+                if (distanceFromGoal > 3f)
                 {
-                    // Move towards ball
-                    SetTargetPosition(_ball.transform.position);
-                    SetAction(PlayerAction.Swimming);
-                }
-                else
-                {
-                    // Move to formation position (simplified - just a position relative to goal)
-                    SetTargetPosition(GetFormationPosition());
-                    SetAction(PlayerAction.Positioning);
+                    return false;
                 }
             }
+
+            // Check if I'm the closest teammate to the ball
+            AIPlayer[] allPlayers = FindObjectsOfType<AIPlayer>();
+            foreach (AIPlayer player in allPlayers)
+            {
+                // Skip self
+                if (player == this) continue;
+
+                // Only check teammates
+                if (player.TeamName != this.TeamName) continue;
+
+                // Skip goalkeeper (they should stay in goal)
+                if (player.Role == PlayerRole.Goalkeeper) continue;
+
+                // Check if another teammate is closer
+                float theirDistance = Vector3.Distance(player.transform.position, _ball.transform.position);
+                if (theirDistance < myDistance - 1f) // 1m tolerance to avoid flickering
+                {
+                    return false; // Someone else is closer
+                }
+            }
+
+            // I'm the closest, I should pursue
+            return true;
         }
 
         #endregion
@@ -228,71 +339,60 @@ namespace WaterPolo.Players
 
         private Vector3 GetFormationPosition()
         {
-            // Phase 1: Simple formation position based on role
-            // In Phase 2+, this will use WaterPoloFormation ScriptableObject
+            // Simple formation position based on role
+            // In Phase 2+, FormationManager will set _targetPosition directly
 
-            if (_opponentGoal == null) return transform.position;
+            if (_ownGoal == null || _opponentGoal == null)
+                return transform.position;
 
-            Vector3 goalPosition = _opponentGoal.position;
+            Vector3 goalPosition = _ownGoal.position;
             Vector3 basePosition = goalPosition;
+            Vector3 forwardDirection = (_opponentGoal.position - goalPosition).normalized;
 
-            // Position relative to goal based on role
+            // Position relative to own goal based on role
             switch (_role)
             {
+                case PlayerRole.Goalkeeper:
+                    // Stay at own goal
+                    basePosition = goalPosition;
+                    break;
+
                 case PlayerRole.CenterForward:
-                    basePosition += Vector3.back * 5f; // 5m in front of goal
+                    // 5m in front of opponent goal
+                    basePosition = _opponentGoal.position - forwardDirection * 5f;
                     break;
 
                 case PlayerRole.LeftWing:
-                    basePosition += Vector3.back * 6f + Vector3.left * 3f;
+                    basePosition = _opponentGoal.position - forwardDirection * 6f;
+                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * -3f; // Left
                     break;
 
                 case PlayerRole.RightWing:
-                    basePosition += Vector3.back * 6f + Vector3.right * 3f;
+                    basePosition = _opponentGoal.position - forwardDirection * 6f;
+                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * 3f; // Right
                     break;
 
                 case PlayerRole.LeftDriver:
-                    basePosition += Vector3.back * 8f + Vector3.left * 2f;
+                    basePosition = goalPosition + forwardDirection * 8f;
+                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * -2f;
                     break;
 
                 case PlayerRole.RightDriver:
-                    basePosition += Vector3.back * 8f + Vector3.right * 2f;
+                    basePosition = goalPosition + forwardDirection * 8f;
+                    basePosition += Vector3.Cross(forwardDirection, Vector3.up).normalized * 2f;
                     break;
 
                 case PlayerRole.CenterBack:
-                    basePosition += Vector3.back * 10f;
-                    break;
-
-                case PlayerRole.Goalkeeper:
-                    basePosition = goalPosition;
+                    basePosition = goalPosition + forwardDirection * 5f;
                     break;
             }
+
+            // Keep Y at water level
+            basePosition.y = 0f;
 
             return basePosition;
         }
 
-        private void FindOpponentGoal()
-        {
-            // Find goals in scene
-            GameObject[] goals = GameObject.FindGameObjectsWithTag("Goal");
-
-            foreach (GameObject goal in goals)
-            {
-                // Simple check: opponent goal is the one furthest away
-                // In Phase 2+, goals will have team association
-                if (_opponentGoal == null ||
-                    Vector3.Distance(transform.position, goal.transform.position) >
-                    Vector3.Distance(transform.position, _opponentGoal.position))
-                {
-                    _opponentGoal = goal.transform;
-                }
-            }
-
-            if (_opponentGoal == null)
-            {
-                Debug.LogWarning($"{_playerName}: No goal found with tag 'Goal'");
-            }
-        }
 
         #endregion
 

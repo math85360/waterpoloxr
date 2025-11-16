@@ -183,6 +183,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -205,6 +207,7 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -241,6 +244,7 @@ GameObject:
   m_Component:
   - component: {fileID: 257954067777941937}
   - component: {fileID: 3705221036613033458}
+  - component: {fileID: 1362616955994908760}
   m_Layer: 0
   m_Name: GoalCollider
   m_TagString: Untagged
@@ -284,3 +288,19 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 3, y: 0.9, z: 0.2}
   m_Center: {x: 0, y: 0.45, z: 0.2}
+--- !u!114 &1362616955994908760
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7822485640579974318}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37af401d22c486047b61ef329faa7af1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WaterPolo.Core.GoalDetector
+  _goalTeam: Home
+  _requireFullBallCrossing: 1
+  _visualizeDetection: 1
+  _detectionColor: {r: 0, g: 1, b: 0, a: 1}

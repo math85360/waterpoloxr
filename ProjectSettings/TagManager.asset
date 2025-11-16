@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Water
   - Ball
+  - Goal
   layers:
   - Default
   - TransparentFX

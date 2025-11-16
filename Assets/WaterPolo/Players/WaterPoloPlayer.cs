@@ -43,10 +43,14 @@ namespace WaterPolo.Players
         [SerializeField] protected PlayerRole _role = PlayerRole.LeftDriver;
         [SerializeField] protected string _teamName = "Home";
 
+        [Header("Attributes")]
+        [SerializeField] protected PlayerAttributes _attributes;
+
         [Header("State")]
         [SerializeField] protected Vector3 _targetPosition;
         [SerializeField] protected PlayerAction _currentAction = PlayerAction.Idle;
         [SerializeField] protected bool _hasBall = false;
+        [SerializeField] protected float _currentFatigue = 0f; // 0-1, 1=exhausted
 
         [Header("Movement")]
         [SerializeField] protected float _swimSpeed = 1.5f;
@@ -56,15 +60,20 @@ namespace WaterPolo.Players
         [SerializeField] protected Transform _leftHandTransform;
         [SerializeField] protected Transform _rightHandTransform;
 
+        [Header("Physics")]
+        [SerializeField] protected Rigidbody _rigidbody;
+
         #region Properties
 
         public string PlayerName => _playerName;
         public PlayerRole Role => _role;
         public string TeamName => _teamName;
+        public PlayerAttributes Attributes => _attributes;
         public Vector3 TargetPosition => _targetPosition;
         public PlayerAction CurrentAction => _currentAction;
         public bool HasBall => _hasBall;
-        public float SwimSpeed => _swimSpeed;
+        public float SwimSpeed => _attributes != null ? _attributes.GetActualSwimSpeed() : _swimSpeed;
+        public float CurrentFatigue => _currentFatigue;
 
         #endregion
 
@@ -80,6 +89,12 @@ namespace WaterPolo.Players
             if (_rightHandTransform == null)
             {
                 _rightHandTransform = transform.Find("RightHand");
+            }
+
+            // Get or add Rigidbody
+            if (_rigidbody == null)
+            {
+                _rigidbody = GetComponent<Rigidbody>();
             }
         }
 
@@ -174,26 +189,38 @@ namespace WaterPolo.Players
         /// <summary>
         /// Basic swimming movement towards target position.
         /// Can be overridden for custom movement behavior.
+        /// Uses physics-based movement for smooth collision handling.
         /// </summary>
         protected virtual void SwimTowardsTarget()
         {
             if (_targetPosition == Vector3.zero) return;
+            if (_rigidbody == null) return;
 
             Vector3 direction = (_targetPosition - transform.position).normalized;
 
-            // Move towards target
-            Vector3 movement = direction * _swimSpeed * Time.deltaTime;
-            transform.position += movement;
+            // Move towards target using physics
+            Vector3 movement = direction * _swimSpeed * Time.fixedDeltaTime;
+            Vector3 newPosition = _rigidbody.position + movement;
+
+            // Keep Y position at water level (0)
+            newPosition.y = 0f;
+
+            _rigidbody.MovePosition(newPosition);
 
             // Rotate towards target
             if (direction != Vector3.zero)
             {
-                Quaternion targetRotation = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.RotateTowards(
-                    transform.rotation,
-                    targetRotation,
-                    _rotationSpeed * Time.deltaTime
-                );
+                Vector3 horizontalDirection = new Vector3(direction.x, 0, direction.z).normalized;
+                if (horizontalDirection != Vector3.zero)
+                {
+                    Quaternion targetRotation = Quaternion.LookRotation(horizontalDirection);
+                    Quaternion newRotation = Quaternion.RotateTowards(
+                        _rigidbody.rotation,
+                        targetRotation,
+                        _rotationSpeed * Time.fixedDeltaTime
+                    );
+                    _rigidbody.MoveRotation(newRotation);
+                }
             }
 
             // Check if reached target
