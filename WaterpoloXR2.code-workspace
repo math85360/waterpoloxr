@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../MLC/Espace_de_travail/workspace/Unity-Water-Shaders"
+		}
+	],
+	"settings": {
+		"diffEditor.codeLens": true
+	}
+}
