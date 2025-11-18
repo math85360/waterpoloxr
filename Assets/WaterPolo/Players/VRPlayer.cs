@@ -95,6 +95,10 @@ namespace WaterPolo.Players
             {
                 Vector3 headPosition = _headTransform.position;
                 headPosition.y = transform.position.y; // Keep same height (water level)
+
+                // Clamp to pool boundaries
+                headPosition = ClampToPoolBounds(headPosition);
+
                 transform.position = Vector3.Lerp(transform.position, headPosition, Time.deltaTime * 5f);
 
                 // Orient body based on head forward (projected on horizontal plane)
@@ -106,6 +110,9 @@ namespace WaterPolo.Players
                     transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 3f);
                 }
             }
+
+            // Final boundary enforcement after all VR movement
+            EnforcePoolBoundaries();
         }
 
         #endregion
@@ -194,7 +201,12 @@ namespace WaterPolo.Players
             // Apply movement
             if (moveDirection.magnitude > 0.1f)
             {
-                transform.position += moveDirection * _vrSwimSpeed * Time.deltaTime;
+                Vector3 newPosition = transform.position + moveDirection * _vrSwimSpeed * Time.deltaTime;
+
+                // Clamp to pool boundaries
+                newPosition = ClampToPoolBounds(newPosition);
+
+                transform.position = newPosition;
             }
         }
 

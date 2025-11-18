@@ -289,8 +289,17 @@ namespace WaterPolo.Core
         {
             Debug.Log("[GameManager] Shot clock expired - Turnover!");
 
-            // In Phase 1, just reset shot clock
-            // In Phase 2+, handle possession change
+            // Force turnover - ball released from current owner
+            if (_ball != null)
+            {
+                Ball.BallController ballController = _ball.GetComponent<Ball.BallController>();
+                if (ballController != null)
+                {
+                    ballController.ForceTurnover();
+                }
+            }
+
+            // Reset shot clock for the new team
             _gameClock.ResetShotClock();
         }
 

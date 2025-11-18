@@ -39,8 +39,16 @@ namespace WaterPolo.Ball
         [SerializeField] private float _passForceMultiplier = 1.0f;
         [SerializeField] private float _shootForceMultiplier = 1.5f;
 
+        [Header("Pool Boundaries")]
+        [SerializeField] private float _poolMinX = -12.5f;
+        [SerializeField] private float _poolMaxX = 12.5f;
+        [SerializeField] private float _poolMinZ = -8f;
+        [SerializeField] private float _poolMaxZ = 8f;
+        [SerializeField] private float _respawnOffset = 0.5f; // 50cm inside pool
+
         private Rigidbody _rigidbody;
         private BallBuoyancy _buoyancy; // Existing buoyancy script
+        private Transform[] _goals; // Cached goals for out-of-bounds detection
 
         #region Properties
 
@@ -62,10 +70,21 @@ namespace WaterPolo.Ball
             {
                 Debug.LogError("BallController requires Rigidbody component!");
             }
+
+            // Cache goals for out-of-bounds detection
+            GameObject[] goalObjects = GameObject.FindGameObjectsWithTag("Goal");
+            _goals = new Transform[goalObjects.Length];
+            for (int i = 0; i < goalObjects.Length; i++)
+            {
+                _goals[i] = goalObjects[i].transform;
+            }
         }
 
         private void Update()
         {
+            // Check for out-of-bounds
+            CheckOutOfBounds();
+
             // Update based on current state
             switch (_currentState)
             {
@@ -83,6 +102,144 @@ namespace WaterPolo.Ball
                     // Could add trajectory assistance here in future
                     break;
             }
+        }
+
+        /// <summary>
+        /// Check if ball is out of pool bounds and handle accordingly.
+        /// </summary>
+        private void CheckOutOfBounds()
+        {
+            Vector3 pos = transform.position;
+
+            // Check if ball is outside pool boundaries
+            bool outOfBounds = pos.x < _poolMinX || pos.x > _poolMaxX ||
+                               pos.z < _poolMinZ || pos.z > _poolMaxZ;
+
+            if (!outOfBounds) return;
+
+            Debug.Log($"Ball out of bounds at {pos}");
+
+            // If ball is possessed and somehow outside, force turnover first
+            if (_currentState == BallState.POSSESSED)
+            {
+                Debug.LogWarning("Ball possessed but outside pool - forcing turnover!");
+                ForceTurnover();
+            }
+
+            // Cancel any pending state transitions
+            CancelInvoke(nameof(ReturnToFreeState));
+
+            // Determine if ball went behind a goal
+            Transform closestGoal = null;
+            float closestGoalDistance = float.MaxValue;
+
+            foreach (Transform goal in _goals)
+            {
+                if (goal == null) continue;
+                float distance = Vector3.Distance(pos, goal.position);
+                if (distance < closestGoalDistance)
+                {
+                    closestGoalDistance = distance;
+                    closestGoal = goal;
+                }
+            }
+
+            // Check if ball is behind the closest goal (within 3m and beyond goal line)
+            bool behindGoal = false;
+            if (closestGoal != null && closestGoalDistance < 5f)
+            {
+                // Ball is near a goal - check if it's behind it
+                // Goals are typically at the Z boundaries
+                if ((closestGoal.position.z < 0 && pos.z < _poolMinZ) ||
+                    (closestGoal.position.z > 0 && pos.z > _poolMaxZ))
+                {
+                    behindGoal = true;
+                }
+            }
+
+            if (behindGoal)
+            {
+                // Ball went behind goal - give to goalkeeper
+                GiveBallToGoalkeeper(closestGoal);
+            }
+            else
+            {
+                // Ball went out on the sides - respawn inside pool
+                RespawnBallInside(pos);
+            }
+        }
+
+        /// <summary>
+        /// Give ball to the goalkeeper of the specified goal.
+        /// </summary>
+        private void GiveBallToGoalkeeper(Transform goal)
+        {
+            // Find the goalkeeper for this goal
+            WaterPoloPlayer[] players = FindObjectsOfType<WaterPoloPlayer>();
+            WaterPoloPlayer goalkeeper = null;
+            float closestDistance = float.MaxValue;
+
+            foreach (WaterPoloPlayer player in players)
+            {
+                if (player.Role == PlayerRole.Goalkeeper)
+                {
+                    float distance = Vector3.Distance(player.transform.position, goal.position);
+                    if (distance < closestDistance)
+                    {
+                        closestDistance = distance;
+                        goalkeeper = player;
+                    }
+                }
+            }
+
+            if (goalkeeper != null)
+            {
+                // Reset ball velocity and give to goalkeeper
+                if (_rigidbody != null)
+                {
+                    _rigidbody.linearVelocity = Vector3.zero;
+                    _rigidbody.angularVelocity = Vector3.zero;
+                }
+
+                // Position ball at goalkeeper
+                transform.position = goalkeeper.GetArmPosition(ArmSide.Right);
+                TryGivePossession(goalkeeper);
+
+                Debug.Log($"Ball given to goalkeeper {goalkeeper.PlayerName} after going behind goal");
+            }
+            else
+            {
+                // No goalkeeper found, just respawn at goal
+                Vector3 respawnPos = goal.position + Vector3.forward * _respawnOffset * Mathf.Sign(goal.position.z) * -1f;
+                respawnPos.y = 0f;
+                ResetBall(respawnPos);
+                Debug.Log("Ball respawned at goal (no goalkeeper found)");
+            }
+        }
+
+        /// <summary>
+        /// Respawn ball 50cm inside the pool boundary.
+        /// </summary>
+        private void RespawnBallInside(Vector3 outPosition)
+        {
+            Vector3 respawnPos = outPosition;
+
+            // Clamp to pool boundaries with offset
+            if (outPosition.x < _poolMinX)
+                respawnPos.x = _poolMinX + _respawnOffset;
+            else if (outPosition.x > _poolMaxX)
+                respawnPos.x = _poolMaxX - _respawnOffset;
+
+            if (outPosition.z < _poolMinZ)
+                respawnPos.z = _poolMinZ + _respawnOffset;
+            else if (outPosition.z > _poolMaxZ)
+                respawnPos.z = _poolMaxZ - _respawnOffset;
+
+            // Reset at water level
+            respawnPos.y = 0f;
+
+            ResetBall(respawnPos);
+            Debug.Log($"Ball respawned inside pool at {respawnPos}");
         }
 
         #endregion
@@ -149,9 +306,11 @@ namespace WaterPolo.Ball
         {
             if (_rigidbody != null)
             {
-                _rigidbody.isKinematic = true;
+                // Set velocities to zero BEFORE making kinematic
+                // (can't set velocity on kinematic body)
                 _rigidbody.linearVelocity = Vector3.zero;
                 _rigidbody.angularVelocity = Vector3.zero;
+                _rigidbody.isKinematic = true;
             }
 
             if (_buoyancy != null)
@@ -301,6 +460,34 @@ namespace WaterPolo.Ball
             }
 
             Debug.Log("Ball reset to starting position");
+        }
+
+        /// <summary>
+        /// Force a turnover - release ball without giving it to anyone.
+        /// Used for shot clock violations, fouls, etc.
+        /// </summary>
+        public void ForceTurnover()
+        {
+            if (_currentState != BallState.POSSESSED)
+            {
+                return; // Ball not possessed, nothing to do
+            }
+
+            WaterPoloPlayer previousOwner = _currentOwner;
+
+            // Release from current owner
+            if (previousOwner != null)
+            {
+                previousOwner.ReleasePossession();
+            }
+
+            _currentOwner = null;
+            TransitionToState(BallState.FREE);
+
+            // Publish event
+            EventBus.Instance.Publish(new BallPossessionChangedEvent(previousOwner, null));
+
+            Debug.Log($"Turnover! Ball released from {previousOwner?.PlayerName ?? "Unknown"}");
         }
 
         #endregion

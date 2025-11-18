@@ -63,6 +63,13 @@ namespace WaterPolo.Players
         [Header("Physics")]
         [SerializeField] protected Rigidbody _rigidbody;
 
+        [Header("Pool Boundaries")]
+        [SerializeField] protected float _poolMinX = -12.5f;
+        [SerializeField] protected float _poolMaxX = 12.5f;
+        [SerializeField] protected float _poolMinZ = -8f;
+        [SerializeField] protected float _poolMaxZ = 8f;
+        [SerializeField] protected float _boundaryOffset = 0.3f; // Stay 30cm from edge
+
         #region Properties
 
         public string PlayerName => _playerName;
@@ -112,8 +119,43 @@ namespace WaterPolo.Players
 
         protected virtual void Update()
         {
+            // Always enforce pool boundaries (in case player got outside somehow)
+            EnforcePoolBoundaries();
+
             // Execute current action
             ExecuteAction();
+        }
+
+        /// <summary>
+        /// Ensure player stays within pool boundaries at all times.
+        /// Called every frame as a safety check.
+        /// </summary>
+        protected virtual void EnforcePoolBoundaries()
+        {
+            Vector3 currentPos = transform.position;
+            Vector3 clampedPos = ClampToPoolBounds(currentPos);
+
+            // Only update if actually outside bounds
+            if (currentPos.x != clampedPos.x || currentPos.z != clampedPos.z)
+            {
+                clampedPos.y = currentPos.y; // Preserve Y
+
+                if (_rigidbody != null && !_rigidbody.isKinematic)
+                {
+                    _rigidbody.MovePosition(clampedPos);
+                    // Stop velocity towards the boundary
+                    Vector3 vel = _rigidbody.linearVelocity;
+                    if ((currentPos.x < _poolMinX && vel.x < 0) || (currentPos.x > _poolMaxX && vel.x > 0))
+                        vel.x = 0;
+                    if ((currentPos.z < _poolMinZ && vel.z < 0) || (currentPos.z > _poolMaxZ && vel.z > 0))
+                        vel.z = 0;
+                    _rigidbody.linearVelocity = vel;
+                }
+                else
+                {
+                    transform.position = clampedPos;
+                }
+            }
         }
 
         #endregion
@@ -180,10 +222,11 @@ namespace WaterPolo.Players
 
         /// <summary>
         /// Set target position for this player to move towards.
+        /// Position is automatically clamped to pool boundaries.
         /// </summary>
         public virtual void SetTargetPosition(Vector3 position)
         {
-            _targetPosition = position;
+            _targetPosition = ClampToPoolBounds(position);
         }
 
         /// <summary>
@@ -204,6 +247,9 @@ namespace WaterPolo.Players
 
             // Keep Y position at water level (0)
             newPosition.y = 0f;
+
+            // Clamp position to pool boundaries
+            newPosition = ClampToPoolBounds(newPosition);
 
             _rigidbody.MovePosition(newPosition);
 
@@ -228,6 +274,16 @@ namespace WaterPolo.Players
             {
                 _currentAction = PlayerAction.Idle;
             }
+        }
+
+        /// <summary>
+        /// Clamp a position to stay within pool boundaries.
+        /// </summary>
+        protected Vector3 ClampToPoolBounds(Vector3 position)
+        {
+            position.x = Mathf.Clamp(position.x, _poolMinX + _boundaryOffset, _poolMaxX - _boundaryOffset);
+            position.z = Mathf.Clamp(position.z, _poolMinZ + _boundaryOffset, _poolMaxZ - _boundaryOffset);
+            return position;
         }
 
         #endregion

@@ -188,9 +188,13 @@ namespace WaterPolo.Players
             {
                 float distanceToGoal = Vector3.Distance(transform.position, _opponentGoal.position);
 
-                if (distanceToGoal < 8f && _matchState != null && _matchState.CanShoot)
+                // Check if can shoot (state allows it)
+                bool canShoot = _matchState == null || _matchState.CanShoot;
+
+                if (distanceToGoal < 8f && canShoot)
                 {
                     // Close enough to shoot
+                    Debug.Log($"{_playerName} deciding to shoot! Distance to goal: {distanceToGoal:F1}m");
                     SetAction(PlayerAction.Shooting);
                 }
                 else
@@ -199,6 +203,10 @@ namespace WaterPolo.Players
                     SetTargetPosition(GetPositionTowardsGoal());
                     SetAction(PlayerAction.Swimming);
                 }
+            }
+            else
+            {
+                Debug.LogWarning($"{_playerName} has ball but no opponent goal assigned!");
             }
         }
 
@@ -314,17 +322,23 @@ namespace WaterPolo.Players
 
             Debug.Log($"{_playerName} shoots towards goal!");
 
-            // Release ball
-            ReleasePossession();
+            // Calculate shot velocity
+            Vector3 shootDirection = (_opponentGoal.position - transform.position).normalized;
+            Vector3 shotVelocity = shootDirection * 15f;
 
-            // Apply force to ball (simplified)
-            if (_ball != null)
+            // Use BallController to properly release the ball as a shot
+            if (_ballController != null)
             {
+                _ballController.ReleaseBall(shotVelocity, isShot: true);
+            }
+            else if (_ball != null)
+            {
+                // Fallback if no BallController
+                ReleasePossession();
                 Rigidbody ballRb = _ball.GetComponent<Rigidbody>();
                 if (ballRb != null)
                 {
-                    Vector3 shootDirection = (_opponentGoal.position - transform.position).normalized;
-                    ballRb.AddForce(shootDirection * 15f, ForceMode.Impulse);
+                    ballRb.AddForce(shotVelocity, ForceMode.VelocityChange);
                 }
             }
 
