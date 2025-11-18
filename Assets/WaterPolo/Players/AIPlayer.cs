@@ -406,19 +406,19 @@ namespace WaterPolo.Players
 
                 case PlayerRole.CenterForward:
                     // Most advanced position, but still in own half (10m from own goal)
-                    basePosition = ownGoalPosition + forwardDirection * 5f;
+                    basePosition = ownGoalPosition + forwardDirection * 7f;
                     break;
 
                 case PlayerRole.LeftWing:
                     // 8m forward, 4m to the left
                     basePosition = ownGoalPosition + forwardDirection * 2f;
-                    basePosition += rightDirection * -4f; // Left
+                    basePosition += rightDirection * -5f; // Left
                     break;
 
                 case PlayerRole.RightWing:
                     // 8m forward, 4m to the right
                     basePosition = ownGoalPosition + forwardDirection * 2f;
-                    basePosition += rightDirection * 4f; // Right
+                    basePosition += rightDirection * 5f; // Right
                     break;
 
                 case PlayerRole.LeftDriver:
@@ -435,7 +435,7 @@ namespace WaterPolo.Players
 
                 case PlayerRole.CenterBack:
                     // Defensive position (3m from own goal)
-                    basePosition = ownGoalPosition + forwardDirection * 2.5f;
+                    basePosition = ownGoalPosition + forwardDirection * 2f;
                     break;
             }
 
