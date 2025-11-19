@@ -40,10 +40,10 @@ namespace WaterPolo.Ball
         [SerializeField] private float _shootForceMultiplier = 1.5f;
 
         [Header("Pool Boundaries")]
-        [SerializeField] private float _poolMinX = -12.5f;
-        [SerializeField] private float _poolMaxX = 12.5f;
-        [SerializeField] private float _poolMinZ = -8f;
-        [SerializeField] private float _poolMaxZ = 8f;
+        [SerializeField] private float _poolMinX = -15f;
+        [SerializeField] private float _poolMaxX = 15f;
+        [SerializeField] private float _poolMinZ = -12f;
+        [SerializeField] private float _poolMaxZ = 12f;
         [SerializeField] private float _respawnOffset = 0.5f; // 50cm inside pool
 
         private Rigidbody _rigidbody;

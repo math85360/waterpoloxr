@@ -64,10 +64,10 @@ namespace WaterPolo.Players
         [SerializeField] protected Rigidbody _rigidbody;
 
         [Header("Pool Boundaries")]
-        [SerializeField] protected float _poolMinX = -12.5f;
-        [SerializeField] protected float _poolMaxX = 12.5f;
-        [SerializeField] protected float _poolMinZ = -8f;
-        [SerializeField] protected float _poolMaxZ = 8f;
+        [SerializeField] protected float _poolMinX = -15f;
+        [SerializeField] protected float _poolMaxX = 15f;
+        [SerializeField] protected float _poolMinZ = -12f;
+        [SerializeField] protected float _poolMaxZ = 12f;
         [SerializeField] protected float _boundaryOffset = 0.3f; // Stay 30cm from edge
 
         #region Properties
